@@ -7,7 +7,7 @@ class Column
 private:
     std::string column_name;
     std::vector<std::string> cell_values;
-    virtual bool validateValue(const std::string& value) = 0;
+    virtual bool validateValue(const std::string& value) const = 0;
 
 public:
     Column(const std::string& name = "", size_t cell_count = 0);
