@@ -30,33 +30,25 @@ bool DoubleColumn::validateValue(const std::string& value) const
 double DoubleColumn::parseIntegerPart(const std::string& value, size_t position) const
 {
     double result = 0;
-    while (position < value.length() && value[position] != '.') 
+    while (position < value.size() && value[position] != '.') 
     {
-        result = result * 10 + (value[position] - '0');
+        result *= 10;
+        result += value[position] - '0';
         ++position;
     }
-
-    if (position < value.length() && value[position] == '.') 
-    {
-        ++position;
-    }
-
     return result;
 }
 
 double DoubleColumn::parseFractionalPart(const std::string& value, size_t position) const
 {
-    double result = 0;
-    double decimalPlace = 10;
-
-    while (position < value.length()) 
+    double result = 0.0;
+    double multiplier = 0.1;
+    while (position < value.size()) 
     {
-        double digit = static_cast<double>(value[position] - '0');
-        result += digit / decimalPlace;
-        decimalPlace *= 10;
+        result += (value[position] - '0') * multiplier;
+        multiplier *= 0.1;
         ++position;
     }
-
     return result;
 }
 
@@ -69,23 +61,39 @@ DoubleColumn* DoubleColumn::clone() const
 
 double DoubleColumn::parseValue(size_t index) const
 {
-    std::string value = (*this)[index];
-    if (value == "NULL") 
+    const std::string& string_value = (*this)[index];
+    if (string_value == "NULL") 
     {
-        return 0;
+        return 0.0;
     }
 
-    double result = 0;
     size_t position = 0;
+    bool is_negative = false;
 
-    bool isNegative = (value[0] == '-');
-    if (isNegative || value[0] == '+') 
+    if (string_value[position] == '-') 
     {
-        position = 1;
+        is_negative = true;
+        ++position;
+    }
+    else if (string_value[position] == '+') 
+    {
+        ++position;
     }
 
-    result = parseIntegerPart(value, position);
-    result += parseFractionalPart(value, position);
+    double integerPart = parseIntegerPart(string_value, position);
 
-    return isNegative ? -result : result;
+    double fractionalPart = 0.0;
+    if (position < string_value.size() && string_value[position] == '.') 
+    {
+        ++position;
+        fractionalPart = parseFractionalPart(string_value, position);
+    }
+
+    double result = integerPart + fractionalPart;
+    if (is_negative) 
+    {
+        result = -result;
+    }
+
+    return result;
 }
