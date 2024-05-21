@@ -21,12 +21,18 @@
     <ClInclude Include="DoubleColumn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="IntColumn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Column.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DoubleColumn.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IntColumn.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

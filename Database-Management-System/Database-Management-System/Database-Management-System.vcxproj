@@ -21,10 +21,12 @@
   <ItemGroup>
     <ClInclude Include="Column.h" />
     <ClInclude Include="DoubleColumn.h" />
+    <ClInclude Include="IntColumn.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Column.cpp" />
     <ClCompile Include="DoubleColumn.cpp" />
+    <ClCompile Include="IntColumn.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
