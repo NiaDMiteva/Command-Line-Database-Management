@@ -23,12 +23,14 @@
     <ClInclude Include="DoubleColumn.h" />
     <ClInclude Include="IntColumn.h" />
     <ClInclude Include="StringColumn.h" />
+    <ClInclude Include="Table.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Column.cpp" />
     <ClCompile Include="DoubleColumn.cpp" />
     <ClCompile Include="IntColumn.cpp" />
     <ClCompile Include="StringColumn.cpp" />
+    <ClCompile Include="Table.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
