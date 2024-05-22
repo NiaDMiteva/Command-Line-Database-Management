@@ -8,7 +8,7 @@ private:
 	std::vector<Column*> columns;
 	std::string file_name;
 	std::string table_name;
-	size_t column_count;
+	size_t columns_count;
 	size_t rows_count;
 public:
 	Table(const std::string& file_name = "", const std::string& table_name);
