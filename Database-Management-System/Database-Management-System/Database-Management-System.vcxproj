@@ -22,6 +22,7 @@
     <ClInclude Include="Column.h" />
     <ClInclude Include="DoubleColumn.h" />
     <ClInclude Include="IntColumn.h" />
+    <ClInclude Include="Serializable.h" />
     <ClInclude Include="StringColumn.h" />
     <ClInclude Include="Table.h" />
   </ItemGroup>
