@@ -1,8 +1,9 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "Serializable.h"
 
-class Column
+class Column : public Serializable
 {
 private:
     std::string column_name;
@@ -31,4 +32,6 @@ public:
     void removeValue(size_t index);
     static Column* createColumn(const std::string& columnType, const std::string& columnName = "", size_t cellCount = 0);
     void updateValue(size_t index, const std::string& value);
+    std::ostream& serialize(std::ostream& os) const override;
+    std::istream& deserialize(std::istream& is) override;
 };

@@ -71,3 +71,36 @@ void Column::updateValue(size_t index, const std::string& value)
 		// Invalid value!
 	}
 }
+
+std::ostream& Column::serialize(std::ostream& os) const
+{
+	os << getColumnType() << '\n'
+		<< column_name << '\n'
+		<< getCellCount() << '\n';
+
+	for (size_t i = 0; i < getCellCount(); i++)
+	{
+		os << (*this)[i] << '\n';
+	}
+}
+
+std::istream& Column::deserialize(std::istream& is)
+{
+	std::string name;
+	std::getline(is, name);
+	column_name = name;
+
+	size_t data_size;
+	is >> data_size;
+	is.ignore();
+
+	cell_values.clear();
+	for (size_t index = 0; index < data_size; ++index)
+	{
+		std::string string_to_add;
+		std::getline(is, string_to_add);
+		appendValue(string_to_add);
+	}
+
+	return is;
+}
