@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Column.h" />
+    <ClInclude Include="Database.h" />
     <ClInclude Include="DoubleColumn.h" />
     <ClInclude Include="IntColumn.h" />
     <ClInclude Include="Serializable.h" />
@@ -28,6 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Column.cpp" />
+    <ClCompile Include="Database.cpp" />
     <ClCompile Include="DoubleColumn.cpp" />
     <ClCompile Include="IntColumn.cpp" />
     <ClCompile Include="StringColumn.cpp" />
