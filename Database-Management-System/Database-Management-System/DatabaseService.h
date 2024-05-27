@@ -15,8 +15,8 @@ private:
     void close();
     void count(const std::string& table_name, size_t search_column, const std::string& search_value);
     void deleteRows(const std::string& table_name, size_t search_column, const std::string& search_value);
-    void describe(const std::string& name);
-    void exportTable(const std::string& name, const std::string& file_name);
+    void describe(const std::string& table_name);
+    void exportTable(const std::string& table_name, const std::string& file_name);
     void help() const noexcept;
     void innerjoin(const std::string& table1, size_t column1, const std::string& table2, size_t column2);
     void insert(const std::vector<std::string>& values_to_insert);
@@ -28,13 +28,12 @@ private:
     void saveTo(const std::string& file_name);
     void select(size_t column, const std::string& value, const std::string& table);
     void showtables() const;
-    void update(const std::string& table, size_t search_column, const std::string& search_value, size_t target_column, const std::string& target_value);
+    void update(const std::string& table_name, size_t search_column_index,const std::string& search_value, size_t target_column_index, const std::string& target_value);
 
-
-    double sum(const Table& table, const std::string& value, size_t searchColumn, size_t targetColumn) const;
-    double product(const Table& table, const std::string& value, size_t searchColumn, size_t targetColumn) const;
-    double maximum(const Table& table, const std::string& value, size_t searchColumn, size_t targetColumn) const;
-    double minimum(const Table& table, const std::string& value, size_t searchColumn, size_t targetColumn) const;
+    double sum(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const;
+    double product(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const;
+    double maximum(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const;
+    double minimum(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const;
 
     void visualizationInfo() const;
 
