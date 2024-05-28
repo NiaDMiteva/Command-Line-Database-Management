@@ -8,7 +8,7 @@ private:
 	std::vector<Table> tables;
 
 public:
-	Database() : tables(9) {}
+	Database() : tables(0) {}
 	void import(const std::string& file_name);
 
 	size_t getTableCount() const
