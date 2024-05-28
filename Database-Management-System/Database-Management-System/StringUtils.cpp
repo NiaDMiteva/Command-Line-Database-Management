@@ -1,4 +1,5 @@
 #include "StringUtils.h"
+#include <stdexcept>
 
 size_t StringUtils::parseToInt(const std::string& string)
 {
@@ -8,7 +9,7 @@ size_t StringUtils::parseToInt(const std::string& string)
 	{
 		if (string[i] < '0' || string[i] > '9')
 		{
-			// String contains characters that are not digits
+			throw std::invalid_argument("String contains characters that are not digits");
 		}
 		else
 		{

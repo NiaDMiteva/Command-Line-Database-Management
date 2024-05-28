@@ -67,12 +67,75 @@ void Table::rename(const std::string& name)
 
 void Table::serialize(bool recovery) const 
 {
-    //TODO: Implement this method
+    std::ofstream os;
+    if (recovery)
+    {
+        os = std::ofstream
+        {
+            "recovery-" + file_name,
+            std::ios::out 
+        };
+    }
+    else
+    {
+        os = std::ofstream
+        {
+            file_name,
+            std::ios::out 
+        };
+    }
+
+    os << table_name << '\n'
+        << columns_count << '\n'
+        << rows_count << '\n';
+    for (size_t i = 0; i < columns_count; i++)
+    {
+        columns[i]->serialize(os);
+    }
+    os.close();
 }
 
 void Table::deserialize(bool recovery) 
 {
-    // TODO: Implement this method
+    std::ifstream is;
+    if (recovery)
+    {
+        is = std::ifstream
+        {
+            "recovery-" + file_name,
+            std::ios::in 
+        };
+    }
+    else
+    {
+        is = std::ifstream
+        {
+            file_name,
+            std::ios::in 
+        };
+    }
+
+    std::string name;
+    std::getline(is, name);
+    table_name = name;
+    size_t _columns_count = 0;
+    size_t _rows_count = 0;
+    is >> _columns_count >> _rows_count;
+    columns_count = _columns_count;
+    rows_count = _rows_count;
+    is.ignore();
+    for (size_t i = 0; i < _columns_count; i++)
+    {
+        std::string type;
+        std::getline(is, type);
+        columns.push_back(Column::createColumn(type));
+        columns[i]->deserialize(is);
+    }
+    if (name == "") 
+    {
+        rename("empty");
+    }
+    is.close();
 }
 
 const std::string& Table::getFileName() const 
@@ -99,7 +162,7 @@ Column* Table::operator[](size_t index)
 {
     if (index < 0 || index > columns.size() - 1)
     {
-        // invalid index
+        throw std::runtime_error("Invalid index!");
     }
     return columns[index];
 }
@@ -108,7 +171,7 @@ const Column* Table::operator[](size_t index) const
 {
     if (index < 0 || index > columns.size() - 1)
 	{
-		// invalid index
+        throw std::runtime_error("Invalid index!");
 	}
 	return columns[index];
 }
