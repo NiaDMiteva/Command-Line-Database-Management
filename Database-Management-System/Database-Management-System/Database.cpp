@@ -9,7 +9,7 @@ void Database::import(const std::string & file_name)
     {
         if (tables[i].getTableName() == table.getTableName())
         {
-            // Already exists a table with this name
+            throw std::runtime_error("Table with the same name already exists!");
         }
     }
 
@@ -75,7 +75,7 @@ const Table& Database::operator[](size_t index) const
 {
     if (index < 0 || index > tables.size() - 1)
     {
-        //Invalid index!
+        throw std::runtime_error("Invalid index!");
     }
 
 	return tables[index];
