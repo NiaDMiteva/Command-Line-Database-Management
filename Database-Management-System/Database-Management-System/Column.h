@@ -30,7 +30,7 @@ public:
     }
     const std::string& operator[](size_t index) const;
     void removeValue(size_t index);
-    static Column* createColumn(const std::string& columnType, const std::string& columnName = "", size_t cellCount = 0);
+    static Column* createColumn(const std::string& column_type, const std::string& column_name = "", size_t cell_count = 0);
     void updateValue(size_t index, const std::string& value);
     std::ostream& serialize(std::ostream& os) const override;
     std::istream& deserialize(std::istream& is) override;

@@ -3,7 +3,7 @@
 
 class DatabaseService
 {
-private:
+public:
 	Database database;
 	std::string file;
 	bool is_opened;

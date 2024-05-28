@@ -1,4 +1,3 @@
-#include "DatabaseService.h"
 #include <fstream>
 #include <exception>
 #include <stdexcept>
@@ -6,372 +5,196 @@
 #include <limits>
 #include <algorithm>
 #include <cstdio>
+#include "StringUtils.h"
 #include "IntColumn.h"
 #include "DoubleColumn.h"
-#include "StringUtils.h"
+#include "DatabaseService.h"
+
+void DatabaseService::saveTo(const std::string& file_name)
+{
+    std::ofstream os
+    {
+        file_name,
+        std::ios::out 
+    };
+
+    if (!os)
+    {
+        throw std::runtime_error("Couldn't save file!");
+    }
+
+    if (file_name == "recovery.txt")
+    {
+        database.serializeWithRecovery(os);
+    }
+    else
+    {
+        database.serialize(os);
+    }
+    os.close();
+}
+
+DatabaseService& DatabaseService::getInstance()
+{
+    static DatabaseService instance;
+    return instance;
+}
 
 DatabaseService::DatabaseService() : is_opened(false) {}
 
-void DatabaseService::addcolumn(const std::string& table_name,
-                                const std::string& column_name,
-                                const std::string& column_type)
+void DatabaseService::open(const std::string& file_name)
 {
-    Table* search_table = database.find(table_name);
-    if (search_table != nullptr)
+    std::ifstream recovery{
+        "recovery.txt",
+        std::ios::in };
+
+    if (recovery)
     {
-        search_table->addColumn(column_name, column_type);
-        search_table->serialize(true);
-        saveTo("recovery.txt");
-        std::cout << "Column " << column_name << " added successfully to table " << table_name << '\n';
+        std::cout << "Looks like the program didn't close properly last time. There is a recovery file, containing all the changes made before. \nWould you like to open the recovery file instead? (y/n): ";
+        char c;
+        std::cin >> c;
+        std::cin.ignore();
+        if (c == 'y' || c == 'Y')
+        {
+            database.deserialize(recovery);
+            recovery.close();
+            is_opened = true;
+            file = file_name;
+            std::cout << "Successfully opened recovery file. New changes will be saved in: " << file_name << '\n';
+            return;
+        }
     }
-    else
+
+    std::ifstream is{
+        file_name,
+        std::ios::in };
+
+    database.deserialize(is);
+    is.close();
+    is_opened = true;
+    file = file_name;
+    std::cout << "Successfully opened " << file_name << '\n';
+
+    for (size_t i = 0; i < database.getTableCount(); i++)
     {
-        std::cout << "Table with the specified name was not found!\n";
+        database[i].serialize(true);
     }
 }
 
-void DatabaseService::aggregate(const std::string& table_name,
-    size_t search_column, const std::string& search_value,
-    size_t target_column, const std::string& operation)
+void DatabaseService::help() const noexcept
 {
-    Table* search_table = database.find(table_name);
+    std::cout << "The following commands are supported: \n";
+    std::cout << std::setw(90) << std::left << "open <file>"
+        << "opens <file>" << std::endl;
+    std::cout << std::setw(90) << "close"
+        << "closes currently opened file" << std::endl;
+    std::cout << std::setw(90) << "save"
+        << "saves the currently open file" << std::endl;
+    std::cout << std::setw(90) << "saveas <file>"
+        << "saves the currently open file in <file>" << std::endl;
+    std::cout << std::setw(90) << "help"
+        << "prints this information" << std::endl;
+    std::cout << std::setw(90) << "exit"
+        << "exits the program" << std::endl;
+    std::cout << std::setw(90) << "import <file name>"
+        << "imports table to database from <file name>" << std::endl;
+    std::cout << std::setw(90) << "showtables"
+        << "shows list of all table names in database" << std::endl;
+    std::cout << std::setw(90) << "describe <name>"
+        << "shows list of types of all columns in table <name>" << std::endl;
+    std::cout << std::setw(90) << "print <name>"
+        << "prints all rows of table <name>" << std::endl;
+    std::cout << std::setw(90) << "export <name> <file name>"
+        << "exports table <name> to file <file name>" << std::endl;
+    std::cout << std::setw(90) << "select <column-n> <value> <table name>"
+        << "prints all rows of table <table name> that contain <value> in column <column-n>" << std::endl;
+    std::cout << std::setw(90) << "addcolumn <table name> <column name> <column type>"
+        << "adds column <column name> of type <column type> to table <table name> with empty rows" << std::endl;
+    std::cout << std::setw(90) << "update <table name> <search column n> <search value> <target column n> <target value>"
+        << "for every row in table <table name> with value <search column value> in column <search column n> changes value in column <target column n> with <target value>" << std::endl;
+    std::cout << std::setw(90) << "delete <table name> <search column n> <search value>"
+        << "deletes every row in table <table name> that has value <search value> in column <search column n>" << std::endl;
+    std::cout << std::setw(90) << "insert <table name> <column1> ... <column n>"
+        << "inserts new row in table <table name> with values <column1> ... <column n> in each column" << std::endl;
+    std::cout << std::setw(90) << "innerjoin <table 1> <column n1> <table 2> <column n2>"
+        << "inner joins table <table 1> and table <table 2> by columns <column 1> in <table 1> and <column 2> in <table 2>" << std::endl;
+    std::cout << std::setw(90) << "rename <old name> <new name>"
+        << "renames table <old name> with name <new name>" << std::endl;
+    std::cout << std::setw(90) << "count <table name> <search column n> <search value>"
+        << "finds count of rows in table <table name> that contain value <search value> in column <search column n>" << std::endl;
+    std::cout << std::setw(90) << "aggregate <table name> <search column n> <search value> <target column n> <operation>"
+        << "executes operation <operation> over every value in column <target column n> that contains value <search value> in column <search column n> in table <table name> " << std::endl;
+}
 
-    if (search_table == nullptr)
+void DatabaseService::save()
+{
+    saveTo(file);
+    std::remove("recovery.txt");
+    for (size_t i = 0; i < database.getTableCount(); i++)
     {
-        std::cout << "Table with the specified name was not found!\n";
-        return;
+        std::string s = ("recovery-" + database[i].getFileName());
+        std::remove(s.c_str());
+    }
+    is_opened = false;
+    std::cout << "Successfully saved " << file << '\n';
+    file = "";
+    database = Database();
+}
+
+void DatabaseService::saveas(const std::string& file_name)
+{
+    saveTo(file_name);
+    std::remove("recovery.txt");
+    for (size_t i = 0; i < database.getTableCount(); i++)
+    {
+        std::string s = ("recovery-" + database[i].getFileName());
+        std::remove(s.c_str());
     }
 
-    if ((*search_table)[target_column - 1]->getColumnType() == "string")
-    {
-        std::cout << "Target column is not of numeric type!\n";
-        return;
-    }
-
-    double result = 0.0;
-
-    if (operation == "sum")
-    {
-        result = sum(*search_table, search_value, search_column, target_column);
-        std::cout << "The sum is: " << result << '\n';
-    }
-    else if (operation == "product")
-    {
-        result = product(*search_table, search_value, search_column, target_column);
-        std::cout << "The product is: " << result << '\n';
-    }
-    else if (operation == "maximum")
-    {
-        result = maximum(*search_table, search_value, search_column, target_column);
-        std::cout << "The maximum value is: " << result << '\n';
-    }
-    else if (operation == "minimum")
-    {
-        result = minimum(*search_table, search_value, search_column, target_column);
-        std::cout << "The minimum value is: " << result << '\n';
-    }
-    else
-    {
-        std::cout << "Unrecognized operation: " << operation << '\n';
-    }
+    is_opened = false;
+    std::cout << "Successfully saved another " << file_name << '\n';
+    file = "";
+    database = Database();
 }
 
 void DatabaseService::close()
 {
-    if (std::remove("recovery.txt") != 0)
+    std::remove("recovery.txt");
+    for (size_t i = 0; i < database.getTableCount(); i++)
     {
-        std::cout << "Error removing recovery file: recovery.txt\n";
-    }
-
-    for (size_t i = 0; i < database.getTableCount(); ++i)
-    {
-        std::string recovery_file_name = "recovery-" + database[i].getFileName();
-
-        if (std::remove(recovery_file_name.c_str()) != 0)
-        {
-            std::cout << "Error removing recovery file: " << recovery_file_name << '\n';
-        }
+        std::string s = ("recovery-" + database[i].getFileName());
+        std::remove(s.c_str());
     }
 
     is_opened = false;
     std::cout << "Successfully closed " << file << '\n';
-
-    file.clear();
+    file = "";
     database = Database();
 }
 
-void DatabaseService::count(const std::string& table_name, size_t search_column,
-                            const std::string& search_value)
+void DatabaseService::showtables() const
 {
-    Table* search_table = database.find(table_name);
-
-    if (search_table == nullptr)
+    std::cout << "List of all tables: \n";
+    for (size_t i = 0; i < database.getTableCount(); i++)
     {
-        std::cout << "Table with the specified name was not found!\n";
-        return;
+        std::cout << i + 1 << ") " << database[i].getTableName() << '\n';
     }
-
-    if (search_column == 0 || search_column > search_table->getColumnCount())
-    {
-        std::cout << "Invalid column index!\n";
-        return;
-    }
-
-    Column* column = (*search_table)[search_column - 1];
-
-    size_t counter = 0;
-    size_t cell_count = column->getCellCount();
-    for (size_t i = 0; i < cell_count; ++i)
-    {
-        if ((*column)[i] == search_value)
-        {
-            ++counter;
-        }
-    }
-
-    std::cout << counter << " rows in column " << column->getColumnName()
-        << " contain the value \"" << search_value << "\".\n";
-}
-
-void DatabaseService::deleteRows(const std::string& table_name, size_t search_column,
-                                const std::string& search_value)
-{
-    Table* search_table = database.find(table_name);
-
-    if (search_table == nullptr)
-    {
-        std::cout << "Table with the specified name was not found!\n";
-        return;
-    }
-
-    if (search_column == 0 || search_column > search_table->getColumnCount())
-    {
-        std::cout << "Invalid column index!\n";
-        return;
-    }
-
-    Column* column = (*search_table)[search_column - 1];
-
-    size_t cell_count = column->getCellCount();
-    for (size_t i = 0; i < cell_count; )
-    {
-        if ((*column)[i] == search_value)
-        {
-            search_table->remove(i);
-            cell_count--;
-        }
-        else
-        {
-            ++i;
-        }
-    }
-
-    search_table->serialize(true);
-    saveTo("recovery.txt");
-
-    std::cout << "Rows deleted successfully!\n";
 }
 
 void DatabaseService::describe(const std::string& table_name)
 {
     Table* table = database.find(table_name);
-
     if (table != nullptr)
     {
-        std::cout << "Description of table: " << table_name << ":\n";
-
-        for (size_t i = 0; i < table->getColumnCount(); ++i)
+        std::cout << "Types of table " << table_name << ":\n";
+        for (size_t i = 0; i < table->getColumnCount(); i++)
         {
-            std::cout << i + 1 << ". " << (*table)[i]->getColumnType() << '\n';
+            std::cout << i + 1 << ") " << (*table)[i]->getColumnType() << '\n';
         }
     }
     else
     {
-        std::cout << "Table \"" << table_name << "\" not found!\n";
-    }
-}
-
-void DatabaseService::exportTable(const std::string& table_name, const std::string& file_name)
-{
-    Table* search_table = database.find(table_name);
-
-    if (search_table != nullptr)
-    {
-        Table target_table(*search_table);
-        target_table.changeFileName(file_name);
-        target_table.serialize();
-
-        std::cout << "Table \"" << table_name << "\" exported successfully!\n";
-    }
-    else
-    {
-        std::cout << "Table \"" << table_name << "\" not found!\n";
-    }
-}
-
-void DatabaseService::help() const noexcept 
-{
-    std::cout << "Hello! Do you need help?\n";
-    std::cout << "Here is a list of commands you can use:\n\n";
-
-    std::cout << std::setw(30) << std::left << "open <file>"
-        << "Open the database file named <file>.\n";
-
-    std::cout << std::setw(30) << "close"
-        << "Close the currently open database file.\n";
-
-    std::cout << std::setw(30) << "save"
-        << "Save the currently open database file.\n";
-
-    std::cout << std::setw(30) << "saveas <file>"
-        << "Save the current database as <file>.\n";
-
-    std::cout << std::setw(30) << "help"
-        << "Show this help information.\n";
-
-    std::cout << std::setw(30) << "exit"
-        << "Exit the program.\n";
-
-    std::cout << std::setw(30) << "import <file name>"
-        << "Import a table from <file name> into the database.\n";
-
-    std::cout << std::setw(30) << "showtables"
-        << "Display a list of all table names in the database.\n";
-
-    std::cout << std::setw(30) << "describe <name>"
-        << "Show the column types of the table <name>.\n";
-
-    std::cout << std::setw(30) << "print <name>"
-        << "Print all rows of the table <name>.\n";
-
-    std::cout << std::setw(30) << "export <name> <file name>"
-        << "Export the table <name> to <file name>.\n";
-
-    std::cout << std::setw(30) << "select <column-n> <value> <table name>"
-        << "Print rows from <table name> where column <column-n> has value <value>.\n";
-
-    std::cout << std::setw(30) << "addcolumn <table name> <column name> <column type>"
-        << "Add a column named <column name> of type <column type> to <table name>.\n";
-
-    std::cout << std::setw(30) << "update <table name> <search column n> <search value> <target column n> <target value>"
-        << "Update rows in <table name> where <search column n> is <search value>, setting <target column n> to <target value>.\n";
-
-    std::cout << std::setw(30) << "delete <table name> <search column n> <search value>"
-        << "Delete rows from <table name> where <search column n> is <search value>.\n";
-
-    std::cout << std::setw(30) << "insert <table name> <column1> ... <column n>"
-        << "Insert a new row into <table name> with values for <column1> ... <column n>.\n";
-
-    std::cout << std::setw(30) << "innerjoin <table 1> <column n1> <table 2> <column n2>"
-        << "Perform an inner join between <table 1> and <table 2> on columns <column n1> and <column n2>.\n";
-
-    std::cout << std::setw(30) << "rename <old name> <new name>"
-        << "Rename table <old name> to <new name>.\n";
-
-    std::cout << std::setw(30) << "count <table name> <search column n> <search value>"
-        << "Count rows in <table name> where <search column n> is <search value>.\n";
-
-    std::cout << std::setw(30) << "aggregate <table name> <search column n> <search value> <target column n> <operation>"
-        << "Perform <operation> on <target column n> values where <search column n> is <search value> in <table name>.\n";
-
-    std::cout << "\nEnjoy managing your database!\n";
-}
-
-
-void DatabaseService::innerjoin(const std::string& table1, size_t column1,
-                                const std::string& table2, size_t column2)
-{
-    Table* first_table = database.find(table1);
-    Table* second_table = database.find(table2);
-
-    if (first_table != nullptr && second_table != nullptr)
-    {
-        Table result = innerJoin(*first_table, column1 - 1, *second_table, column2 - 1);
-
-        result.serialize();
-
-        database.import(result.getFileName());
-
-        std::string first_name = first_table->getTableName();
-        std::string second_name = second_table->getTableName();
-        std::string joined_name = result.getTableName();
-
-        result.serialize(true);
-        saveTo("recovery.txt");
-
-        std::cout << "Successfully joined tables " << first_name << " and " << second_name << " into " << joined_name << "!\n";
-    }
-    else
-    {
-        std::cout << "Couldn't find one of the tables!\n";
-    }
-}
-
-void DatabaseService::insert(const std::vector<std::string>& values_to_insert)
-{
-    const std::string& table_name = values_to_insert[0];
-    Table* table = database.find(table_name);
-
-    if (table != nullptr)
-    {
-        if (values_to_insert.size() - 1 != table->getColumnCount())
-        {
-            throw std::runtime_error("Invalid number of parameters!");
-        }
-
-        std::vector<std::string> values(values_to_insert.begin() + 1, values_to_insert.end());
-
-        table->insertRow(values);
-        table->serialize(true);
-
-        saveTo("recovery.txt");
-        std::cout << "Row inserted successfully into table \"" << table_name << "\"!\n";
-    }
-    else
-    {
-        std::cout << "Table \"" << table_name << "\" not found!\n";
-    }
-}
-
-void DatabaseService::open(const std::string& file_name)
-{
-    std::ifstream recovery("recovery.txt", std::ios::in);
-
-    if (recovery)
-    {
-        std::cout << "It seems the program didn't close properly last time."
-             << "There is a recovery file containing all the changes made before.\n"
-             << "Would you like to open the recovery file instead ? (y / n) : ";
-        char user_response;
-        std::cin >> user_response;
-        std::cin.ignore();
-
-        if (user_response == 'y' || user_response == 'Y')
-        {
-            database.deserialize(recovery);
-            recovery.close();
-
-            is_opened = true;
-            file = file_name;
-
-            std::cout << "Successfully opened the recovery file. New changes will be saved in: " << file_name << '\n';
-            return;
-        }
-    }
-
-    std::ifstream input_file(file_name, std::ios::in);
-
-    database.deserialize(input_file);
-    input_file.close();
-
-    is_opened = true;
-    file = file_name;
-
-    std::cout << "Successfully opened: " << file_name << '\n';
-
-    for (size_t i = 0; i < database.getTableCount(); ++i)
-    {
-        database[i].serialize(true);
+        std::cout << "Couldn't find table with specified name!\n";
     }
 }
 
@@ -389,7 +212,7 @@ void DatabaseService::print(const std::string& name)
             pages++;
         }
 
-        size_t current_page = 1;
+        size_t currentPage = 1;
         std::cout << "\nCurrent page: 1\n";
 
         for (size_t i = 0; i < table->getColumnCount(); i++)
@@ -397,194 +220,11 @@ void DatabaseService::print(const std::string& name)
             std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
         }
         std::cout << '\n';
-        for (size_t i = 0; i < std::min(table->getRowCount(), current_page * 10); i++)
+        for (size_t i = 0; i < std::min(table->getRowCount(), currentPage * 10); i++)
         {
             for (size_t j = 0; j < table->getColumnCount(); j++)
             {
                 std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
-            }
-            std::cout << '\n';
-        }
-        std::cout << '\n';
-
-        std::string command;
-        do
-        {
-            std::cout << "> ";
-            std::getline(std::cin, command);
-            command = StringUtils::removeTrailingSpaces(StringUtils::removeLeadingSpaces(command));
-            StringUtils::toLowerCase(command);
-
-            if (command == "next" || command == "previous")
-            {
-                bool is_valid = true;
-                if (command == "next" && pages > current_page)
-                {
-                    current_page++;
-                }
-                else if (command == "previous" && current_page > 1)
-                {
-                    current_page--;
-                }
-                else
-                {
-                    is_valid = false;
-                    std::cout << "No more pages!\n";
-                }
-
-                if (is_valid)
-                {
-                    std::cout << "\nCurrent page: " << current_page << "\n";
-
-                    for (size_t i = 0; i < table->getColumnCount(); i++)
-                    {
-                        std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
-                    }
-                    std::cout << '\n';
-                    for (size_t i = (current_page - 1) * 10; i < std::min(table->getRowCount(), current_page * 10); i++)
-                    {
-                        for (size_t j = 0; j < table->getColumnCount(); j++)
-                        {
-                            std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
-                        }
-                        std::cout << '\n';
-                    }
-                    std::cout << '\n';
-                }
-            }
-            else if (command == "exit")
-            {
-                std::cout << "Exiting visualization mode...\n";
-            }
-            else
-            {
-                std::cout << "Invalid command! Available commands: \n";
-                visualizationInfo();
-            }
-        } while (command != "exit");
-    }
-    else
-    {
-        std::cout << "Couldn't find table with specified name!\n";
-    }
-}
-
-void DatabaseService::rename(const std::string& old_name, const std::string& new_name)
-{
-    Table* table = database.find(old_name);
-
-    if (table != nullptr)
-    {
-        if (database.find(new_name) != nullptr)
-        {
-            std::cout << "A table with the new name \"" << new_name << "\" already exists!\n";
-        }
-        else
-        {
-            table->rename(new_name);
-            table->serialize(true);
-            saveTo("recovery.txt");
-            std::cout << "Table \"" << old_name << "\" renamed to \"" << new_name << "\"!\n";
-        }
-    }
-    else
-    {
-        std::cout << "Table \"" << old_name << "\" not found!\n";
-    }
-}
-
-void DatabaseService::save()
-{
-    saveTo(file);
-    std::remove("recovery.txt");
-
-    for (size_t i = 0; i < database.getTableCount(); ++i)
-    {
-        std::string recoveryFileName = "recovery-" + database[i].getFileName();
-        std::remove(recoveryFileName.c_str());
-    }
-
-    is_opened = false;
-    file = "";
-    database = Database();
-
-    std::cout << "Successfully saved database state.\n";
-}
-
-
-void DatabaseService::saveas(const std::string& file_name)
-{
-    saveTo(file_name);
-    std::remove("recovery.txt");
-
-    for (size_t i = 0; i < database.getTableCount(); ++i)
-    {
-        std::string recoveryFileName = "recovery-" + database[i].getFileName();
-        std::remove(recoveryFileName.c_str());
-    }
-
-    is_opened = false;
-    file = "";
-    database = Database();
-
-    std::cout << "Successfully saved as: " << file_name << '\n';
-}
-
-
-void DatabaseService::saveTo(const std::string& file_name)
-{
-    std::ofstream os(file_name, std::ios::out);
-
-    if (!os)
-    {
-        throw std::runtime_error("Couldn't save file: " + file_name);
-    }
-    if (file_name == "recovery.txt")
-    {
-        database.serializeWithRecovery(os);
-    }
-    else
-    {
-        database.serialize(os);
-    }
-
-    os.close();
-}
-
-
-void DatabaseService::select(size_t column, const std::string& value, const std::string& table)
-{
-    Table* search_table = database.find(table);
-    if (search_table != nullptr)
-    {
-        std::vector<size_t> indeces;
-        for (size_t i = 0; i < (*search_table)[column - 1]->getCellCount(); i++)
-        {
-            if ((*(*search_table)[column - 1])[i] == value)
-            {
-                indeces.push_back(i);
-            }
-        }
-
-        std::cout << "\nYou are currently in visualization mode! Available commands: \n";
-        visualizationInfo();
-
-        size_t pages = indeces.size() / 10;
-        pages += (indeces.size() % 10 != 0);
-        size_t currentPage = 1;
-
-        std::cout << "\nCurrent page: 1\n";
-
-        for (size_t i = 0; i < search_table->getColumnCount(); i++)
-        {
-            std::cout << std::setw(20) << std::left << (*search_table)[i]->getColumnName() << ' ';
-        }
-        std::cout << '\n';
-        for (size_t i = 0; i < std::min(indeces.size(), currentPage * 10); i++)
-        {
-            for (size_t j = 0; j < search_table->getColumnCount(); j++)
-            {
-                std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indeces[i]] << ' ';
             }
             std::cout << '\n';
         }
@@ -619,16 +259,16 @@ void DatabaseService::select(size_t column, const std::string& value, const std:
                 {
                     std::cout << "\nCurrent page: " << currentPage << "\n";
 
-                    for (size_t i = 0; i < search_table->getColumnCount(); i++)
+                    for (size_t i = 0; i < table->getColumnCount(); i++)
                     {
-                        std::cout << std::setw(20) << std::left << (*search_table)[i]->getColumnName() << ' ';
+                        std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
                     }
                     std::cout << '\n';
-                    for (size_t i = (currentPage - 1) * 10; i < std::min(indeces.size(), currentPage * 10); i++)
+                    for (size_t i = (currentPage - 1) * 10; i < std::min(table->getRowCount(), currentPage * 10); i++)
                     {
-                        for (size_t j = 0; j < search_table->getColumnCount(); j++)
+                        for (size_t j = 0; j < table->getColumnCount(); j++)
                         {
-                            std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indeces[i]] << ' ';
+                            std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
                         }
                         std::cout << '\n';
                     }
@@ -652,171 +292,432 @@ void DatabaseService::select(size_t column, const std::string& value, const std:
     }
 }
 
-void DatabaseService::showtables() const
+void DatabaseService::exportTable(const std::string& table_name, const std::string& file_name)
 {
-    std::cout << "List of tables in the database:\n";
-    for (size_t i = 0; i < database.getTableCount(); ++i)
+    Table* searchTable = database.find(table_name);
+    if (searchTable != nullptr)
     {
-        std::cout << i + 1 << ". " << database[i].getTableName() << '\n';
-    }
-}
-
-void DatabaseService::update(const std::string& table_name, size_t search_column_index,
-                             const std::string& search_value, size_t target_column_index,
-                             const std::string& target_value)
-{
-    Table* target_table = database.find(table_name);
-
-    if (target_table != nullptr)
-    {
-        Column* search_column = (*target_table)[search_column_index - 1];
-
-        for (size_t i = 0; i < search_column->getCellCount(); ++i)
-        {
-            if ((*search_column)[i] == search_value)
-            {
-                (*target_table)[target_column_index - 1]->updateValue(i, target_value);
-            }
-        }
-
-        target_table->serialize(true);
-        saveTo("recovery.txt");
-        std::cout << "Table \"" << table_name << "\" successfully updated!\n";
+        Table targetTable(*searchTable);
+        targetTable.changeFileName(file_name);
+        targetTable.serialize();
+        std::cout << "Table exported successfully!\n";
     }
     else
     {
-        std::cout << "Table \"" << table_name << "\" not found!\n";
+        std::cout << "Couldn't find table with specified name!\n";
     }
 }
 
-
-double DatabaseService::sum(const Table& table, const std::string& search_value,
-                            size_t search_column_index, size_t target_column_index) const
+void DatabaseService::select(size_t column, const std::string& value, const std::string& table)
 {
-    double total_sum = 0;
-
-    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); ++i)
+    Table* searchTable = database.find(table);
+    if (searchTable != nullptr)
     {
-        if ((*table[search_column_index - 1])[i] == search_value)
+        std::vector<size_t> indexes;
+        for (size_t i = 0; i < (*searchTable)[column - 1]->getCellCount(); i++)
         {
-            const Column* target_column = table[target_column_index - 1];
-            std::string column_type = target_column->getColumnType();
-
-            if (column_type == "integer")
+            if ((*(*searchTable)[column - 1])[i] == value)
             {
-                const IntColumn* int_col = dynamic_cast<const IntColumn*>(target_column);
-                total_sum += int_col->parseValue(i);
-            }
-            else if (column_type == "double")
-            {
-                const DoubleColumn* double_col = dynamic_cast<const DoubleColumn*>(target_column);
-                total_sum += double_col->parseValue(i);
+                indexes.push_back(i);
             }
         }
-    }
 
-    return total_sum;
-}
+        std::cout << "\nYou are currently in visualization mode! Available commands: \n";
+        visualizationInfo();
 
+        size_t pages = indexes.size() / 10;
+        pages += (indexes.size() % 10 != 0);
+        size_t currentPage = 1;
 
-double DatabaseService::product(const Table& table, const std::string& search_value,
-                                size_t search_column_index, size_t target_column_index) const
-{
-    double total_product = 1;
+        std::cout << "\nCurrent page: 1\n";
 
-    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); ++i)
-    {
-        if ((*table[search_column_index - 1])[i] == search_value && (*table[target_column_index - 1])[i] != "NULL")
+        for (size_t i = 0; i < searchTable->getColumnCount(); i++)
         {
-            const Column* target_column = table[target_column_index - 1];
-            std::string column_type = target_column->getColumnType();
-
-            if (column_type == "integer")
-            {
-                const IntColumn* int_col = dynamic_cast<const IntColumn*>(target_column);
-                total_product *= int_col->parseValue(i);
-            }
-            else if (column_type == "double")
-            {
-                const DoubleColumn* double_col = dynamic_cast<const DoubleColumn*>(target_column);
-                total_product *= double_col->parseValue(i);
-            }
+            std::cout << std::setw(20) << std::left << (*searchTable)[i]->getColumnName() << ' ';
         }
-    }
-
-    return total_product;
-}
-
-
-double DatabaseService::maximum(const Table& table, const std::string& search_value,
-                                size_t search_column_index, size_t target_column_index) const
-{
-    double max_value = std::numeric_limits<double>::lowest();
-
-    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); ++i)
-    {
-        if ((*table[search_column_index - 1])[i] == search_value && (*table[target_column_index - 1])[i] != "NULL")
+        std::cout << '\n';
+        for (size_t i = 0; i < std::min(indexes.size(), currentPage * 10); i++)
         {
-            const Column* target_column = table[target_column_index - 1];
-            std::string column_type = target_column->getColumnType();
-
-            if (column_type == "integer")
+            for (size_t j = 0; j < searchTable->getColumnCount(); j++)
             {
-                const IntColumn* int_col = dynamic_cast<const IntColumn*>(target_column);
-                double value = int_col->parseValue(i);
-                if (value > max_value)
+                std::cout << std::setw(20) << std::left << (*(*searchTable)[j])[indexes[i]] << ' ';
+            }
+            std::cout << '\n';
+        }
+        std::cout << '\n';
+
+        std::string command;
+        do
+        {
+            std::cout << "> ";
+            std::getline(std::cin, command);
+            command = StringUtils::removeTrailingSpaces(StringUtils::removeLeadingSpaces(command));
+            StringUtils::toLowerCase(command);
+
+            if (command == "next" || command == "previous")
+            {
+                bool isValid = true;
+                if (command == "next" && pages > currentPage)
                 {
-                    max_value = value;
+                    currentPage++;
+                }
+                else if (command == "previous" && currentPage > 1)
+                {
+                    currentPage--;
+                }
+                else
+                {
+                    isValid = false;
+                    std::cout << "No more pages!\n";
+                }
+
+                if (isValid)
+                {
+                    std::cout << "\nCurrent page: " << currentPage << "\n";
+
+                    for (size_t i = 0; i < searchTable->getColumnCount(); i++)
+                    {
+                        std::cout << std::setw(20) << std::left << (*searchTable)[i]->getColumnName() << ' ';
+                    }
+                    std::cout << '\n';
+                    for (size_t i = (currentPage - 1) * 10; i < std::min(indexes.size(), currentPage * 10); i++)
+                    {
+                        for (size_t j = 0; j < searchTable->getColumnCount(); j++)
+                        {
+                            std::cout << std::setw(20) << std::left << (*(*searchTable)[j])[indexes[i]] << ' ';
+                        }
+                        std::cout << '\n';
+                    }
+                    std::cout << '\n';
                 }
             }
-            else if (column_type == "double")
+            else if (command == "exit")
             {
-                const DoubleColumn* double_col = dynamic_cast<const DoubleColumn*>(target_column);
-                double value = double_col->parseValue(i);
-                if (value > max_value)
+                std::cout << "Exiting visualization mode...\n";
+            }
+            else
+            {
+                std::cout << "Invalid command! Available commands: \n";
+                visualizationInfo();
+            }
+        } while (command != "exit");
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+void DatabaseService::addcolumn(const std::string& table_name, const std::string& column_name, const std::string& column_type)
+{
+    Table* searchTable = database.find(table_name);
+    if (searchTable != nullptr)
+    {
+        searchTable->addColumn(column_name, column_type);
+        searchTable->serialize(true);
+        saveTo("recovery.txt");
+        std::cout << "Column " << column_name << " added successfully to table " << table_name << '\n';
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+void DatabaseService::update(const std::string& table_name, size_t search_column_index, const std::string& search_value, size_t target_column_index, const std::string& target_value)
+{
+    Table* searchTable = database.find(table_name);
+    if (searchTable != nullptr)
+    {
+        for (size_t i = 0; i < (*searchTable)[search_column_index - 1]->getCellCount(); i++)
+        {
+            if ((*(*searchTable)[search_column_index - 1])[i] == search_value)
+            {
+                (*searchTable)[target_column_index - 1]->updateValue(i, target_value);
+            }
+        }
+        searchTable->serialize(true);
+        saveTo("recovery.txt");
+        std::cout << "Table " << table_name << " successfully updated!\n";
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+void DatabaseService::deleteRows(const std::string& table_name, size_t search_column, const std::string& search_value)
+{
+    Table* searchTable = database.find(table_name);
+    if (searchTable != nullptr)
+    {
+        for (size_t i = 0; i < (*searchTable)[search_column - 1]->getCellCount(); i++)
+        {
+            if ((*(*searchTable)[search_column - 1])[i] == search_value)
+            {
+                searchTable->remove(i);
+                i--;
+            }
+        }
+
+        searchTable->serialize(true);
+        saveTo("recovery.txt");
+        std::cout << "Rows deleted successfully!\n";
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+void DatabaseService::insert(const std::vector<std::string>& values_to_insert)
+{
+    Table* table = database.find(values_to_insert[0]);
+    if (table != nullptr)
+    {
+        if (values_to_insert.size() - 1 > table->getColumnCount())
+        {
+            throw std::runtime_error("Invalid number of parameters!");
+        }
+        std::vector<std::string> values(values_to_insert);
+        values.erase(std::begin(values));
+        table->insertRow(values);
+
+        table->serialize(true);
+        saveTo("recovery.txt");
+        std::cout << "Row inserted successfully!\n";
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+void DatabaseService::innerjoin(const std::string& table1, size_t column1, const std::string& table2, size_t column2)
+{
+    Table* firstTable = database.find(table1);
+    Table* secondTable = database.find(table2);
+    if (firstTable != nullptr && secondTable != nullptr)
+    {
+        Table result = innerJoin(*firstTable, column1 - 1, *secondTable, column2 - 1);
+        result.serialize();
+        database.import(result.getFileName());
+
+        std::string firstName = firstTable->getFileName();
+        std::string secondName = secondTable->getFileName();
+
+        result.serialize(true);
+        saveTo("recovery.txt");
+        std::cout << "Successfully joined tables " << firstName << " and " << secondName << " into " << result.getTableName() << "!\n";
+    }
+    else
+    {
+        std::cout << "Couldn't find one of the tables!\n";
+    }
+}
+
+void DatabaseService::rename(const std::string& old_name, const std::string& new_name)
+{
+    Table* table = database.find(old_name);
+    if (table != nullptr)
+    {
+        if (database.find(new_name) != nullptr)
+        {
+            std::cout << "A table with this name already exists!\n";
+        }
+        else
+        {
+            table->rename(new_name);
+
+            table->serialize(true);
+            saveTo("recovery.txt");
+            std::cout << "Table "
+                << "\"" << old_name << "\" "
+                << "renamed to "
+                << "\"" << new_name << "\"!\n";
+        }
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+void DatabaseService::count(const std::string& table_name, size_t search_column, const std::string& search_value)
+{
+    Table* searchTable = database.find(table_name);
+    if (searchTable != nullptr)
+    {
+        size_t counter = 0;
+        for (size_t i = 0; i < (*searchTable)[search_column - 1]->getCellCount(); i++)
+        {
+            if ((*(*searchTable)[search_column - 1])[i] == search_value)
+            {
+                counter++;
+            }
+        }
+        std::cout << counter << " rows in column " << (*searchTable)[search_column - 1]->getColumnName() << " contain value " << search_value << "!\n";
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+void DatabaseService::aggregate(const std::string& table_name, size_t search_column, const std::string& search_value, size_t target_column, const std::string& operation)
+{
+    Table* searchTable = database.find(table_name);
+    if (searchTable != nullptr)
+    {
+        if ((*searchTable)[target_column - 1]->getColumnType() == "string")
+        {
+            std::cout << "Target column is not of numeric type!\n";
+        }
+        else
+        {
+            if (operation == "sum")
+            {
+                double result = sum(*searchTable, search_value, search_column, target_column);
+
+                std::cout << "The sum is: " << result << '\n';
+            }
+            else if (operation == "product")
+            {
+                double result = product(*searchTable, search_value, search_column, target_column);
+                std::cout << "The product is: " << result << '\n';
+            }
+            else if (operation == "maximum")
+            {
+                double result = maximum(*searchTable, search_value, search_column, target_column);
+                std::cout << "The maximum value is: " << result << '\n';
+            }
+            else if (operation == "minimum")
+            {
+                double result = minimum(*searchTable, search_value, search_column, target_column);
+                std::cout << "The minimum value is: " << result << '\n';
+            }
+            else
+            {
+                std::cout << "Unrecognized operation!\n";
+            }
+        }
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
+}
+
+double DatabaseService::sum(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const
+{
+    double sum = 0;
+
+    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); i++)
+    {
+        if ((*(table[search_column_index - 1]))[i] == search_value)
+        {
+
+            if (table[target_column_index - 1]->getColumnType() == "integer")
+            {
+                const IntColumn* col = dynamic_cast<const IntColumn*>(table[target_column_index - 1]);
+                sum += col->parseValue(i);
+            }
+            else if (table[target_column_index - 1]->getColumnType() == "double")
+            {
+                const DoubleColumn* col = dynamic_cast<const DoubleColumn*>(table[target_column_index - 1]);
+                sum += col->parseValue(i);
+            }
+        }
+    }
+
+    return sum;
+}
+
+double DatabaseService::product(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const
+{
+    double product = 1;
+
+    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); i++)
+    {
+        if ((*(table[search_column_index - 1]))[i] == search_value && (*(table[target_column_index - 1]))[i] != "NULL")
+        {
+
+            if (table[target_column_index - 1]->getColumnType() == "integer")
+            {
+                const IntColumn* col = dynamic_cast<const IntColumn*>(table[target_column_index - 1]);
+                product *= col->parseValue(i);
+            }
+            else if (table[target_column_index - 1]->getColumnType() == "double")
+            {
+                const DoubleColumn* col = dynamic_cast<const DoubleColumn*>(table[target_column_index - 1]);
+                product *= col->parseValue(i);
+            }
+        }
+    }
+
+    return product;
+}
+
+double DatabaseService::maximum(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const
+{
+    double maximum = std::numeric_limits<double>::lowest();
+
+    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); i++)
+    {
+        if ((*(table[search_column_index - 1]))[i] == search_value && (*(table[target_column_index - 1]))[i] != "NULL")
+        {
+
+            if (table[target_column_index - 1]->getColumnType() == "integer")
+            {
+                const IntColumn* col = dynamic_cast<const IntColumn*>(table[target_column_index - 1]);
+                if (col->parseValue(i) > maximum)
                 {
-                    max_value = value;
+                    maximum = col->parseValue(i);
+                }
+            }
+            else if (table[target_column_index - 1]->getColumnType() == "double")
+            {
+                const DoubleColumn* col = dynamic_cast<const DoubleColumn*>(table[target_column_index - 1]);
+                if (col->parseValue(i) > maximum)
+                {
+                    maximum = col->parseValue(i);
                 }
             }
         }
     }
 
-    return max_value;
+    return maximum;
 }
 
 double DatabaseService::minimum(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const
 {
-    double min_value = std::numeric_limits<double>::max();
+    double minimum = std::numeric_limits<double>::max();
 
-    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); ++i)
+    for (size_t i = 0; i < table[search_column_index - 1]->getCellCount(); i++)
     {
-        if ((*table[search_column_index - 1])[i] == search_value && (*table[target_column_index - 1])[i] != "NULL")
+        if ((*(table[search_column_index - 1]))[i] == search_value && (*(table[target_column_index - 1]))[i] != "NULL")
         {
-            const Column* target_column = table[target_column_index - 1];
-            std::string column_type = target_column->getColumnType();
 
-            if (column_type == "integer")
+            if (table[target_column_index - 1]->getColumnType() == "integer")
             {
-                const IntColumn* int_col = dynamic_cast<const IntColumn*>(target_column);
-                double value = int_col->parseValue(i);
-                if (value < min_value)
+                const IntColumn* col = dynamic_cast<const IntColumn*>(table[target_column_index - 1]);
+                if (col->parseValue(i) < minimum)
                 {
-                    min_value = value;
+                    minimum = col->parseValue(i);
                 }
             }
-            else if (column_type == "double")
+            else if (table[target_column_index - 1]->getColumnType() == "double")
             {
-                const DoubleColumn* double_col = dynamic_cast<const DoubleColumn*>(target_column);
-                double value = double_col->parseValue(i);
-                if (value < min_value)
+                const DoubleColumn* col = dynamic_cast<const DoubleColumn*>(table[target_column_index - 1]);
+                if (col->parseValue(i) < minimum)
                 {
-                    min_value = value;
+                    minimum = col->parseValue(i);
                 }
             }
         }
     }
 
-    return min_value;
+    return minimum;
 }
 
 void DatabaseService::visualizationInfo() const
@@ -829,12 +730,7 @@ void DatabaseService::visualizationInfo() const
         << "Exits the visualization mode" << std::endl;
 }
 
-DatabaseService& DatabaseService::getInstance()
-{
-	static DatabaseService instance;
-	return instance;
-}
-
+//Looks long but its just one big switch statement with extra sugar on top
 void DatabaseService::run()
 {
     std::string command;
@@ -1052,9 +948,9 @@ void DatabaseService::run()
                 {
                     throw std::runtime_error("Invalid number of parameters!");
                 }
-                size_t search_column = StringUtils::parseToInt(parameters[1]);
-                size_t target_column = StringUtils::parseToInt(parameters[3]);
-                update(parameters[0], search_column, parameters[2], target_column, parameters[4]);
+                size_t searchColumn = StringUtils::parseToInt(parameters[1]);
+                size_t targetColumn = StringUtils::parseToInt(parameters[3]);
+                update(parameters[0], searchColumn, parameters[2], targetColumn, parameters[4]);
             }
             catch (const std::exception& e)
             {
@@ -1148,9 +1044,9 @@ void DatabaseService::run()
                 {
                     throw std::runtime_error("Invalid number of parameters!");
                 }
-                size_t search_column = StringUtils::parseToInt(parameters[1]);
-                size_t target_column = StringUtils::parseToInt(parameters[3]);
-                aggregate(parameters[0], search_column, parameters[2], target_column, parameters[4]);
+                size_t searchColumn = StringUtils::parseToInt(parameters[1]);
+                size_t targetColumn = StringUtils::parseToInt(parameters[3]);
+                aggregate(parameters[0], searchColumn, parameters[2], targetColumn, parameters[4]);
             }
             catch (const std::exception& e)
             {

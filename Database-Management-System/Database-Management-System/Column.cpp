@@ -38,19 +38,19 @@ void Column::removeValue(size_t index)
 	cell_values.erase(cell_values.begin() + index);
 }
 
-Column* Column::createColumn(const std::string& columnType, const std::string& columnName, size_t cellCount)
+Column* Column::createColumn(const std::string& column_type, const std::string& column_name, size_t cell_count)
 {
-	if (columnType == "integer")
+	if (column_type == "integer")
 	{
-		return new IntColumn(columnName, cellCount);
+		return new IntColumn(column_name, cell_count);
 	}
-	else if (columnType == "double")
+	else if (column_type == "double")
 	{
-		return new DoubleColumn(columnName, cellCount);
+		return new DoubleColumn(column_name, cell_count);
 	}
-	else if (columnType == "string")
+	else if (column_type == "string")
 	{
-		return new StringColumn(columnName, cellCount);
+		return new StringColumn(column_name, cell_count);
 	}
 	else
 	{
@@ -100,7 +100,6 @@ std::istream& Column::deserialize(std::istream& is)
 	is >> data_size;
 	is.ignore();
 
-	cell_values.clear();
 	for (size_t index = 0; index < data_size; ++index)
 	{
 		std::string string_to_add;
