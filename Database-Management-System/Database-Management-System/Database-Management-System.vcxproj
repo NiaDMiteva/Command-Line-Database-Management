@@ -26,6 +26,7 @@
     <ClInclude Include="IntColumn.h" />
     <ClInclude Include="Serializable.h" />
     <ClInclude Include="StringColumn.h" />
+    <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Table.h" />
   </ItemGroup>
   <ItemGroup>
@@ -34,7 +35,9 @@
     <ClCompile Include="DatabaseService.cpp" />
     <ClCompile Include="DoubleColumn.cpp" />
     <ClCompile Include="IntColumn.cpp" />
+    <ClCompile Include="Main.cpp" />
     <ClCompile Include="StringColumn.cpp" />
+    <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Table.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

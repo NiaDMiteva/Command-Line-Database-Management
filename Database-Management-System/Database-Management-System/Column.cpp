@@ -49,10 +49,7 @@ Column* Column::createColumn(const std::string& columnType, const std::string& c
 	{
 		// string column
 	}
-	else
-	{
 		return nullptr;
-	}
 }
 
 void Column::updateValue(size_t index, const std::string& value)
@@ -68,8 +65,9 @@ void Column::updateValue(size_t index, const std::string& value)
 	}
 	else 
 	{
-		// Invalid value!
+		cell_values[index] = "NULL";
 	}
+
 }
 
 std::ostream& Column::serialize(std::ostream& os) const
@@ -82,6 +80,8 @@ std::ostream& Column::serialize(std::ostream& os) const
 	{
 		os << (*this)[i] << '\n';
 	}
+
+	return os;
 }
 
 std::istream& Column::deserialize(std::istream& is)

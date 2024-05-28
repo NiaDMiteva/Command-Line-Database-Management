@@ -11,7 +11,7 @@ private:
 	size_t columns_count;
 	size_t rows_count;
 public:
-	Table(const std::string& file_name = "", const std::string& table_name);
+	Table(const std::string& file_name = "", const std::string& table_name = "");
 	Table(const Table& other);
 	~Table();
 	Table& operator=(const Table& other);

@@ -130,5 +130,50 @@ void Table::remove(size_t row_index)
 
 Table innerJoin(const Table& first, size_t first_column, const Table& second, size_t second_column)
 {
-    //TODO : Implement this method
+    Table result(first.getTableName() + '-' + second.getTableName() + ".txt", first.getTableName() + '-' + second.getTableName());
+    for (size_t i = 0; i < first.getColumnCount(); i++)
+    {
+        if (i == first_column)
+        {
+            result.addColumn(first.getTableName() + '-' + first.columns[i]->getColumnName(), first.columns[i]->getColumnType());
+        }
+        else
+        {
+            result.addColumn(first.columns[i]->getColumnName(), first.columns[i]->getColumnType());
+        }
+    }
+    for (size_t i = 0; i < second.getColumnCount(); i++)
+    {
+        if (i == second_column)
+        {
+            result.addColumn(second.getTableName() + '-' + second.columns[i]->getColumnName(), second.columns[i]->getColumnType());
+        }
+        else
+        {
+            result.addColumn(second.columns[i]->getColumnName(), second.columns[i]->getColumnType());
+        }
+    }
+
+    for (size_t i = 0; i < std::min(first.getRowCount(), second.getRowCount()); i++)
+    {
+        for (size_t j = 0; j < std::max(first.getRowCount(), second.getRowCount()); j++)
+        {
+            if ((*first.columns[first_column])[i] == (*second.columns[second_column])[j])
+            {
+                std::vector<std::string> v;
+                for (size_t k = 0; k < first.getColumnCount(); k++)
+                {
+                    v.push_back((*first.columns[k])[i]);
+                }
+                for (size_t k = 0; k < second.getColumnCount(); k++)
+                {
+                    v.push_back((*second.columns[k])[j]);
+                }
+
+                result.insertRow(v);
+            }
+        }
+    }
+
+    return result;
 }

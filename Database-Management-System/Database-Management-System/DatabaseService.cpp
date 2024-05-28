@@ -8,6 +8,7 @@
 #include <cstdio>
 #include "IntColumn.h"
 #include "DoubleColumn.h"
+#include "StringUtils.h"
 
 DatabaseService::DatabaseService() : is_opened(false) {}
 
@@ -280,19 +281,19 @@ void DatabaseService::help() const noexcept
 void DatabaseService::innerjoin(const std::string& table1, size_t column1,
                                 const std::string& table2, size_t column2)
 {
-    Table* firstTable = database.find(table1);
-    Table* secondTable = database.find(table2);
+    Table* first_table = database.find(table1);
+    Table* second_table = database.find(table2);
 
-    if (firstTable != nullptr && secondTable != nullptr)
+    if (first_table != nullptr && second_table != nullptr)
     {
-        Table result = innerJoin(*firstTable, column1 - 1, *secondTable, column2 - 1);
+        Table result = innerJoin(*first_table, column1 - 1, *second_table, column2 - 1);
 
         result.serialize();
 
         database.import(result.getFileName());
 
-        std::string first_name = firstTable->getTableName();
-        std::string second_name = secondTable->getTableName();
+        std::string first_name = first_table->getTableName();
+        std::string second_name = second_table->getTableName();
         std::string joined_name = result.getTableName();
 
         result.serialize(true);
@@ -376,7 +377,96 @@ void DatabaseService::open(const std::string& file_name)
 
 void DatabaseService::print(const std::string& name)
 {
-    // TODO: Implement print function
+    Table* table = database.find(name);
+    if (table != nullptr)
+    {
+        std::cout << "\nYou are currently in visualization mode! Available commands: \n";
+        visualizationInfo();
+
+        size_t pages = table->getRowCount() / 10;
+        if (table->getRowCount() % 10 > 0)
+        {
+            pages++;
+        }
+
+        size_t current_page = 1;
+        std::cout << "\nCurrent page: 1\n";
+
+        for (size_t i = 0; i < table->getColumnCount(); i++)
+        {
+            std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
+        }
+        std::cout << '\n';
+        for (size_t i = 0; i < std::min(table->getRowCount(), current_page * 10); i++)
+        {
+            for (size_t j = 0; j < table->getColumnCount(); j++)
+            {
+                std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
+            }
+            std::cout << '\n';
+        }
+        std::cout << '\n';
+
+        std::string command;
+        do
+        {
+            std::cout << "> ";
+            std::getline(std::cin, command);
+            command = StringUtils::removeTrailingSpaces(StringUtils::removeLeadingSpaces(command));
+            StringUtils::toLowerCase(command);
+
+            if (command == "next" || command == "previous")
+            {
+                bool is_valid = true;
+                if (command == "next" && pages > current_page)
+                {
+                    current_page++;
+                }
+                else if (command == "previous" && current_page > 1)
+                {
+                    current_page--;
+                }
+                else
+                {
+                    is_valid = false;
+                    std::cout << "No more pages!\n";
+                }
+
+                if (is_valid)
+                {
+                    std::cout << "\nCurrent page: " << current_page << "\n";
+
+                    for (size_t i = 0; i < table->getColumnCount(); i++)
+                    {
+                        std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
+                    }
+                    std::cout << '\n';
+                    for (size_t i = (current_page - 1) * 10; i < std::min(table->getRowCount(), current_page * 10); i++)
+                    {
+                        for (size_t j = 0; j < table->getColumnCount(); j++)
+                        {
+                            std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
+                        }
+                        std::cout << '\n';
+                    }
+                    std::cout << '\n';
+                }
+            }
+            else if (command == "exit")
+            {
+                std::cout << "Exiting visualization mode...\n";
+            }
+            else
+            {
+                std::cout << "Invalid command! Available commands: \n";
+                visualizationInfo();
+            }
+        } while (command != "exit");
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
 }
 
 void DatabaseService::rename(const std::string& old_name, const std::string& new_name)
@@ -464,7 +554,102 @@ void DatabaseService::saveTo(const std::string& file_name)
 
 void DatabaseService::select(size_t column, const std::string& value, const std::string& table)
 {
-    // TODO: Implement select function
+    Table* search_table = database.find(table);
+    if (search_table != nullptr)
+    {
+        std::vector<size_t> indeces;
+        for (size_t i = 0; i < (*search_table)[column - 1]->getCellCount(); i++)
+        {
+            if ((*(*search_table)[column - 1])[i] == value)
+            {
+                indeces.push_back(i);
+            }
+        }
+
+        std::cout << "\nYou are currently in visualization mode! Available commands: \n";
+        visualizationInfo();
+
+        size_t pages = indeces.size() / 10;
+        pages += (indeces.size() % 10 != 0);
+        size_t currentPage = 1;
+
+        std::cout << "\nCurrent page: 1\n";
+
+        for (size_t i = 0; i < search_table->getColumnCount(); i++)
+        {
+            std::cout << std::setw(20) << std::left << (*search_table)[i]->getColumnName() << ' ';
+        }
+        std::cout << '\n';
+        for (size_t i = 0; i < std::min(indeces.size(), currentPage * 10); i++)
+        {
+            for (size_t j = 0; j < search_table->getColumnCount(); j++)
+            {
+                std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indeces[i]] << ' ';
+            }
+            std::cout << '\n';
+        }
+        std::cout << '\n';
+
+        std::string command;
+        do
+        {
+            std::cout << "> ";
+            std::getline(std::cin, command);
+            command = StringUtils::removeTrailingSpaces(StringUtils::removeLeadingSpaces(command));
+            StringUtils::toLowerCase(command);
+
+            if (command == "next" || command == "previous")
+            {
+                bool isValid = true;
+                if (command == "next" && pages > currentPage)
+                {
+                    currentPage++;
+                }
+                else if (command == "previous" && currentPage > 1)
+                {
+                    currentPage--;
+                }
+                else
+                {
+                    isValid = false;
+                    std::cout << "No more pages!\n";
+                }
+
+                if (isValid)
+                {
+                    std::cout << "\nCurrent page: " << currentPage << "\n";
+
+                    for (size_t i = 0; i < search_table->getColumnCount(); i++)
+                    {
+                        std::cout << std::setw(20) << std::left << (*search_table)[i]->getColumnName() << ' ';
+                    }
+                    std::cout << '\n';
+                    for (size_t i = (currentPage - 1) * 10; i < std::min(indeces.size(), currentPage * 10); i++)
+                    {
+                        for (size_t j = 0; j < search_table->getColumnCount(); j++)
+                        {
+                            std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indeces[i]] << ' ';
+                        }
+                        std::cout << '\n';
+                    }
+                    std::cout << '\n';
+                }
+            }
+            else if (command == "exit")
+            {
+                std::cout << "Exiting visualization mode...\n";
+            }
+            else
+            {
+                std::cout << "Invalid command! Available commands: \n";
+                visualizationInfo();
+            }
+        } while (command != "exit");
+    }
+    else
+    {
+        std::cout << "Couldn't find table with specified name!\n";
+    }
 }
 
 void DatabaseService::showtables() const
@@ -652,4 +837,340 @@ DatabaseService& DatabaseService::getInstance()
 
 void DatabaseService::run()
 {
+    std::string command;
+    do
+    {
+        std::cout << "> ";
+        std::getline(std::cin, command);
+        std::string space_delimiter = " ";
+        std::vector<std::string> parameters{};
+        command = StringUtils::removeTrailingSpaces(StringUtils::removeLeadingSpaces(command));
+
+        size_t pos = command.find(space_delimiter);
+        while (pos != std::string::npos)
+        {
+            parameters.push_back(command.substr(0, pos));
+            command.erase(0, pos + space_delimiter.length());
+            command = StringUtils::removeLeadingSpaces(command);
+            pos = command.find(space_delimiter);
+        }
+        parameters.push_back(command);
+        command = parameters[0];
+        StringUtils::toLowerCase(command);
+        parameters.erase(std::begin(parameters));
+
+        if (command == "open" && !is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 1)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                open(parameters[0]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "open" && is_opened)
+        {
+            std::cout << "There is a file currently opened!\n";
+        }
+        else if (command == "help")
+        {
+            try
+            {
+                if (parameters.size() != 0)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                help();
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "save" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 0)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                save();
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "saveas" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 1)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                saveas(parameters[0]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "close" && is_opened)
+        {
+            if (parameters.size() != 0)
+            {
+                throw std::runtime_error("Invalid number of parameters!");
+            }
+            close();
+        }
+        else if (command == "exit" && is_opened)
+        {
+            std::cout << "You have an open file with unsaved changes, please select close or save first.\n";
+            command = "";
+        }
+        else if (command == "import" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 1)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                database.import(parameters[0]);
+                std::cout << "Table successfully imported to database!\n";
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "showtables" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 0)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                showtables();
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "describe" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 1)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                describe(parameters[0]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "print" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 1)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                print(parameters[0]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "export" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 2)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                exportTable(parameters[0], parameters[1]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "select" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 3)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                size_t column = StringUtils::parseToInt(parameters[0]);
+
+                select(column, parameters[1], parameters[2]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "addcolumn" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 3)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                addcolumn(parameters[0], parameters[1], parameters[2]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "update" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 5)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                size_t search_column = StringUtils::parseToInt(parameters[1]);
+                size_t target_column = StringUtils::parseToInt(parameters[3]);
+                update(parameters[0], search_column, parameters[2], target_column, parameters[4]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "delete" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 3)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                size_t column = StringUtils::parseToInt(parameters[1]);
+                deleteRows(parameters[0], column, parameters[2]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "insert" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() < 1)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                insert(parameters);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "innerjoin" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 4)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                size_t column1 = StringUtils::parseToInt(parameters[1]);
+                size_t column2 = StringUtils::parseToInt(parameters[3]);
+                innerjoin(parameters[0], column1, parameters[2], column2);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "rename" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 2)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                rename(parameters[0], parameters[1]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "count" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 3)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                size_t column = StringUtils::parseToInt(parameters[1]);
+                count(parameters[0], column, parameters[2]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "aggregate" && is_opened)
+        {
+            try
+            {
+                if (parameters.size() != 5)
+                {
+                    throw std::runtime_error("Invalid number of parameters!");
+                }
+                size_t search_column = StringUtils::parseToInt(parameters[1]);
+                size_t target_column = StringUtils::parseToInt(parameters[3]);
+                aggregate(parameters[0], search_column, parameters[2], target_column, parameters[4]);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+        else if (command == "count" || command == "rename" || command == "innerjoin" || command == "insert" || command == "delete" || command == "update" || command == "addcolumn" || command == "select" || command == "export" || command == "print" || command == "describe" || command == "showtables" || command == "import" || command == "close" || command == "saveas" || command == "save" || command == "aggregate" && !is_opened)
+        {
+            std::cout << "There is not a file currently opened!\n";
+        }
+        else
+        {
+            if (command != "exit")
+            {
+                std::cout << "Invalid command! Type \"help\" to see list of commands!\n";
+            }
+            else
+            {
+                std::cout << "Exiting program...\n";
+            }
+        }
+    } while (command != "exit");
 }
