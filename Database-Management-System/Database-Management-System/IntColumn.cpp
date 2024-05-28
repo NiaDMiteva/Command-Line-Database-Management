@@ -27,7 +27,7 @@ int IntColumn::parseIntegerPart(const std::string& value, size_t position) const
     for (size_t i = position; i < value.length(); ++i) {
         if (value[i] < '0' || value[i] > '9') 
         {
-            // throw exception - invalid_argument
+            throw std::runtime_error("Invalid integer value!");
         }
         result *= 10;
         result += value[i] - '0';
