@@ -1,4 +1,7 @@
 #include "Column.h"
+#include "IntColumn.h"
+#include "DoubleColumn.h"
+#include "StringColumn.h"
 
 Column::Column(const std::string& name, size_t cell_count) : cell_values(cell_count), column_name(name)
 {
@@ -24,7 +27,7 @@ const std::string& Column::operator[](size_t index) const
 {
 	if (index < 0 || index > cell_values.size() - 1)
 	{
-		// Invalid index
+		throw std::runtime_error("Invalid index!");
 	}
 
 	return cell_values[index];
@@ -39,24 +42,27 @@ Column* Column::createColumn(const std::string& columnType, const std::string& c
 {
 	if (columnType == "integer")
 	{
-		// int column
+		return new IntColumn(columnName, cellCount);
 	}
 	else if (columnType == "double")
 	{
-		// double column
+		return new DoubleColumn(columnName, cellCount);
 	}
 	else if (columnType == "string")
 	{
-		// string column
+		return new StringColumn(columnName, cellCount);
 	}
+	else
+	{
 		return nullptr;
+	}
 }
 
 void Column::updateValue(size_t index, const std::string& value)
 {
 	if (index < 0 || index > cell_values.size() - 1)
 	{
-		// Invalid index!
+		throw std::runtime_error("Invalid index!");
 	}
 
 	if (validateValue(value)) 
