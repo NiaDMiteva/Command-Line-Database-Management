@@ -54,9 +54,11 @@ Column* Column::createColumn(const std::string& column_type, const std::string& 
 	}
 	else
 	{
+		std::cerr << "Unknown column type: " << column_type << std::endl;
 		return nullptr;
 	}
 }
+
 
 void Column::updateValue(size_t index, const std::string& value)
 {
@@ -92,20 +94,19 @@ std::ostream& Column::serialize(std::ostream& os) const
 
 std::istream& Column::deserialize(std::istream& is)
 {
-	std::string name;
-	std::getline(is, name);
-	column_name = name;
+	std::string name_of_column;
+	std::getline(is, name_of_column);
+	column_name = name_of_column;
 
 	size_t data_size;
 	is >> data_size;
 	is.ignore();
 
-	for (size_t index = 0; index < data_size; ++index)
+	for (size_t i = 0; i < data_size; i++)
 	{
-		std::string string_to_add;
-		std::getline(is, string_to_add);
-		appendValue(string_to_add);
+		std::string string;
+		std::getline(is, string);
+		appendValue(string);
 	}
-
 	return is;
 }

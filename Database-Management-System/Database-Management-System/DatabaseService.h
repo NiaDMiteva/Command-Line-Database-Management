@@ -36,6 +36,7 @@ public:
     double minimum(const Table& table, const std::string& search_value, size_t search_column_index, size_t target_column_index) const;
 
     void visualizationInfo() const;
+    void printCommand(const std::string& command, const std::string& description) const;
 
 public:
     static DatabaseService& getInstance();

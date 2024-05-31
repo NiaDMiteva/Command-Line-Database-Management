@@ -22,45 +22,34 @@ IntColumn* IntColumn::clone() const
     return new IntColumn(*this);
 }
 
-int IntColumn::parseIntegerPart(const std::string& value, size_t position) const {
-    int result = 0;
-    for (size_t i = position; i < value.length(); ++i) {
-        if (value[i] < '0' || value[i] > '9') 
-        {
-            throw std::runtime_error("Invalid integer value!");
-        }
-        result *= 10;
-        result += value[i] - '0';
-    }
-    return result;
-}
 int IntColumn::parseValue(size_t index) const
 {
-    const std::string& string_value = (*this)[index];
-    if (string_value == "NULL") 
-    {
-        return 0;
-    }
-
-    size_t position = 0;
-    bool is_negative = false;
-
-    if (string_value[position] == '-') 
-    {
-        is_negative = true;
-        ++position;
-    }
-    else if (string_value[position] == '+') 
-    {
-        ++position;
-    }
-
-    int result = parseIntegerPart(string_value, position);
-
-    if (is_negative) 
-    {
-        result = -result;
-    }
-
-    return result;
+    if ((*this)[index] == "NULL")
+	{
+		return 0;
+	}
+	int result = 0;
+	if ((*this)[index][0] == '-' || (*this)[index][0] == '+')
+	{
+		unsigned i = 1;
+		while ((*this)[index][i])
+		{
+			result *= 10;
+			result += (*this)[index][i++] - '0';
+		}
+		if ((*this)[index][0] == '-')
+		{
+			result = -result;
+		}
+	}
+	else
+	{
+		unsigned i = 0;
+		while ((*this)[index][i])
+		{
+			result *= 10;
+			result += (*this)[index][i++] - '0';
+		}
+	}
+	return result;
 }

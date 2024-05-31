@@ -9,6 +9,7 @@
 #include "IntColumn.h"
 #include "DoubleColumn.h"
 #include "DatabaseService.h"
+#include <iomanip>
 
 void DatabaseService::saveTo(const std::string& file_name)
 {
@@ -44,36 +45,38 @@ DatabaseService::DatabaseService() : is_opened(false) {}
 
 void DatabaseService::open(const std::string& file_name)
 {
-    std::ifstream recovery
-    {
-        "recovery.txt",
-        std::ios::in 
-    };
+    std::ifstream recovery("recovery.txt", std::ios::in);
+    bool recovery_file_exists = recovery.is_open();
+    recovery.close();
 
-    if (recovery)
+    if (recovery_file_exists)
     {
-        std::cout << "Looks like the program didn't close properly last time." 
-            << "There is a recovery file, containing all the changes made before. \n"
+        std::cout << "It seems the program didn't close properly last time."
+            << "There is a recovery file containing all the changes made before.\n"
             << "Would you like to open the recovery file instead ? (y / n) : ";
-        char c;
-        std::cin >> c;
+        char user_response;
+        std::cin >> user_response;
         std::cin.ignore();
-        if (c == 'y' || c == 'Y')
+
+        if (user_response == 'y' || user_response == 'Y')
         {
+            std::ifstream recovery("recovery.txt", std::ios::in);
             database.deserialize(recovery);
             recovery.close();
+
             is_opened = true;
-            file = file_name;
-            std::cout << "Successfully opened recovery file. New changes will be saved in: " << file_name << '\n';
+            file = "recovery.txt"; 
+            std::cout << "Successfully opened the recovery file. New changes will be saved in: " << file << '\n';
             return;
         }
     }
 
-    std::ifstream is
+    std::ifstream is(file_name, std::ios::in);
+    if (!is.is_open())
     {
-        file_name,
-        std::ios::in 
-    };
+        std::cout << "Error: File " << file_name << " does not exist.\n";
+        return;
+    }
 
     database.deserialize(is);
     is.close();
@@ -87,65 +90,70 @@ void DatabaseService::open(const std::string& file_name)
     }
 }
 
-void DatabaseService::help() const noexcept
+void DatabaseService::help() const noexcept 
 {
-    std::cout << "The following commands are supported: \n";
-    std::cout << std::setw(90) << std::left << "open <file>"
-        << "opens <file>" << std::endl;
-    std::cout << std::setw(90) << "close"
-        << "closes currently opened file" << std::endl;
-    std::cout << std::setw(90) << "save"
-        << "saves the currently open file" << std::endl;
-    std::cout << std::setw(90) << "saveas <file>"
-        << "saves the currently open file in <file>" << std::endl;
-    std::cout << std::setw(90) << "help"
-        << "prints this information" << std::endl;
-    std::cout << std::setw(90) << "exit"
-        << "exits the program" << std::endl;
-    std::cout << std::setw(90) << "import <file name>"
-        << "imports table to database from <file name>" << std::endl;
-    std::cout << std::setw(90) << "showtables"
-        << "shows list of all table names in database" << std::endl;
-    std::cout << std::setw(90) << "describe <name>"
-        << "shows list of types of all columns in table <name>" << std::endl;
-    std::cout << std::setw(90) << "print <name>"
-        << "prints all rows of table <name>" << std::endl;
-    std::cout << std::setw(90) << "export <name> <file name>"
-        << "exports table <name> to file <file name>" << std::endl;
-    std::cout << std::setw(90) << "select <column-n> <value> <table name>"
-        << "prints all rows of table <table name> that contain <value> in column <column-n>" << std::endl;
-    std::cout << std::setw(90) << "addcolumn <table name> <column name> <column type>"
-        << "adds column <column name> of type <column type> to table <table name> with empty rows" << std::endl;
-    std::cout << std::setw(90) << "update <table name> <search column n> <search value> <target column n> <target value>"
-        << "for every row in table <table name> with value <search column value> in column <search column n> changes value in column <target column n> with <target value>" << std::endl;
-    std::cout << std::setw(90) << "delete <table name> <search column n> <search value>"
-        << "deletes every row in table <table name> that has value <search value> in column <search column n>" << std::endl;
-    std::cout << std::setw(90) << "insert <table name> <column1> ... <column n>"
-        << "inserts new row in table <table name> with values <column1> ... <column n> in each column" << std::endl;
-    std::cout << std::setw(90) << "innerjoin <table 1> <column n1> <table 2> <column n2>"
-        << "inner joins table <table 1> and table <table 2> by columns <column 1> in <table 1> and <column 2> in <table 2>" << std::endl;
-    std::cout << std::setw(90) << "rename <old name> <new name>"
-        << "renames table <old name> with name <new name>" << std::endl;
-    std::cout << std::setw(90) << "count <table name> <search column n> <search value>"
-        << "finds count of rows in table <table name> that contain value <search value> in column <search column n>" << std::endl;
-    std::cout << std::setw(90) << "aggregate <table name> <search column n> <search value> <target column n> <operation>"
-        << "executes operation <operation> over every value in column <target column n> that contains value <search value> in column <search column n> in table <table name> " << std::endl;
+    const std::string RESET = "\033[0m";
+    const std::string YELLOW = "\u001b[33m";
+    const std::string GREEN = "\u001b[32m";
+
+    std::cout << "=================================================== Database Service Help ==================================================\n";
+    std::cout << "Welcome to the Database Service! Below are the commands you can use:\n";
+    std::cout << "============================================================================================================================\n\n";
+
+    std::cout << std::setw(50) << std::left << "Command" << "Description\n";
+    std::cout << "----------------------------------------------------------------------------------------------------------------------------\n";
+
+    printCommand("open <file>", "Open a file and make it active. If the file does not exist, a new one will be created.");
+    printCommand("close", "Close the currently active file without saving any changes.");
+    printCommand("save", "Save changes to the active file.");
+    printCommand("saveas <file>", "Save the active file with a new name.");
+    printCommand("help", "Display this list of commands.");
+    printCommand("exit", "Exit the program.");
+    printCommand("import <file name>", "Import a table from a file into the current database.");
+    printCommand("showtables", "Show all tables in the current database.");
+    printCommand("describe <name>", "Display the schema of the specified table.");
+    printCommand("print <name>", "Print all rows of the specified table.");
+    printCommand("export <name> <file name>", "Export a table to a file.");
+    printCommand("select <column-n> <value> <table name>", "Print rows containing a specific value in a column of a table.");
+    printCommand("addcolumn <table name> <column name> <column type>", "Add a new column to the specified table.");
+    printCommand("update <table name> <search column n> <search value> <target column n> <target value>", "Update values in a table based on a condition.");
+    printCommand("delete <table name> <search column n> <search value>", "Delete rows based on a condition.");
+    printCommand("insert <table name> <column1> ... <column n>", "Insert a new row into the specified table.");
+    printCommand("innerjoin <table 1> <column n1> <table 2> <column n2>", "Join two tables based on a common column.");
+    printCommand("rename <old name> <new name>", "Rename a table.");
+    printCommand("count <table name> <search column n> <search value>", "Count rows based on a condition.");
+    printCommand("aggregate <table name> <search column n> <search value> <target column n> <operation>", "Perform an operation on column values based on a condition.");
 }
 
-void DatabaseService::save()
+void DatabaseService::printCommand(const std::string& command, const std::string& description) const 
+{
+    const std::string RESET = "\033[0m";
+    const std::string YELLOW = "\u001b[33m";
+    const std::string GREEN = "\u001b[32m";
+
+    std::cout << YELLOW << std::setw(50) << std::left << command << RESET;
+    std::cout << "|";
+    std::cout << GREEN << description << RESET << "\n";
+    std::cout << "----------------------------------------------------------------------------------------------------------------------------\n";
+}
+
+void DatabaseService::save() 
 {
     saveTo(file);
     std::remove("recovery.txt");
-    for (size_t i = 0; i < database.getTableCount(); i++)
+
+    for (size_t i = 0; i < database.getTableCount(); ++i) 
     {
-        std::string s = ("recovery-" + database[i].getFileName());
-        std::remove(s.c_str());
+        std::string recovery_file_name = "recovery-" + database[i].getFileName();
+        std::remove(recovery_file_name.c_str());
     }
+
     is_opened = false;
     std::cout << "Successfully saved " << file << '\n';
     file = "";
     database = Database();
 }
+
 
 void DatabaseService::saveas(const std::string& file_name)
 {
@@ -204,97 +212,88 @@ void DatabaseService::describe(const std::string& table_name)
     }
 }
 
-void DatabaseService::print(const std::string& name)
+void DatabaseService::print(const std::string& table_name)
 {
-    Table* table = database.find(name);
-    if (table != nullptr)
+    const std::string RESET = "\033[0m";
+    const std::string YELLOW = "\u001b[33m";
+    const std::string GREEN = "\u001b[32m";
+
+    Table* table = database.find(table_name);
+    if (table != nullptr) 
     {
-        std::cout << "\nYou are currently in visualization mode! Available commands: \n";
-        visualizationInfo();
-
-        size_t pages = table->getRowCount() / 10;
-        if (table->getRowCount() % 10 > 0)
-        {
-            pages++;
-        }
-
-        size_t current_page = 1;
-        std::cout << "\nCurrent page: 1\n";
-
-        for (size_t i = 0; i < table->getColumnCount(); i++)
-        {
-            std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
-        }
+        std::cout << GREEN << "\nYou are currently in visualization mode! Available commands:\n" << RESET;
+        std::cout << YELLOW << "next" << GREEN << " - Go to the next page\n" << RESET;
+        std::cout << YELLOW << "previous" << GREEN << " - Go to the previous page\n" << RESET;
+        std::cout << YELLOW << "exit" << GREEN << " - Exit the visualization mode\n" << RESET;
         std::cout << '\n';
-        for (size_t i = 0; i < std::min(table->getRowCount(), current_page * 10); i++)
-        {
-            for (size_t j = 0; j < table->getColumnCount(); j++)
+
+        size_t totalPages = (table->getRowCount() + 9) / 10;
+        size_t current_page = 1;
+
+        auto print_page = [&](size_t page) 
             {
-                std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
+            std::cout << YELLOW << "\nCurrent page: " << page << "\n\n" << RESET;
+            for (size_t i = 0; i < table->getColumnCount(); ++i) 
+            {
+                std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
             }
             std::cout << '\n';
-        }
-        std::cout << '\n';
+
+            size_t startRow = (page - 1) * 10;
+            size_t endRow = std::min(table->getRowCount(), page * 10);
+            for (size_t i = startRow; i < endRow; ++i) {
+                for (size_t j = 0; j < table->getColumnCount(); ++j) 
+                {
+                    std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
+                }
+                std::cout << '\n';
+            }
+            std::cout << '\n';
+            };
+
+        print_page(current_page);
 
         std::string command;
-        do
+        do 
         {
             std::cout << "> ";
             std::getline(std::cin, command);
             command = StringUtils::removeTrailingSpaces(StringUtils::removeLeadingSpaces(command));
             StringUtils::toLowerCase(command);
 
-            if (command == "next" || command == "previous")
+            if (command == "next" || command == "previous") 
             {
-                bool is_valid = true;
-                if (command == "next" && pages > current_page)
+                if (command == "next" && current_page < totalPages) 
                 {
-                    current_page++;
+                    ++current_page;
                 }
-                else if (command == "previous" && current_page > 1)
+                else if (command == "previous" && current_page > 1) 
                 {
-                    current_page--;
+                    --current_page;
                 }
-                else
+                else 
                 {
-                    is_valid = false;
-                    std::cout << "No more pages!\n";
+                    std::cout << GREEN << "No more pages!\n" << RESET;
+                    continue;
                 }
-
-                if (is_valid)
-                {
-                    std::cout << "\nCurrent page: " << current_page << "\n";
-
-                    for (size_t i = 0; i < table->getColumnCount(); i++)
-                    {
-                        std::cout << std::setw(20) << std::left << (*table)[i]->getColumnName() << ' ';
-                    }
-                    std::cout << '\n';
-                    for (size_t i = (current_page - 1) * 10; i < std::min(table->getRowCount(), current_page * 10); i++)
-                    {
-                        for (size_t j = 0; j < table->getColumnCount(); j++)
-                        {
-                            std::cout << std::setw(20) << std::left << (*(*table)[j])[i] << ' ';
-                        }
-                        std::cout << '\n';
-                    }
-                    std::cout << '\n';
-                }
+                print_page(current_page);
             }
-            else if (command == "exit")
+            else if (command == "exit") 
             {
-                std::cout << "Exiting visualization mode...\n";
+                std::cout << GREEN << "Exiting visualization mode...\n" << RESET;
             }
-            else
+            else 
             {
-                std::cout << "Invalid command! Available commands: \n";
-                visualizationInfo();
+                std::cout << GREEN << "Invalid command! Available commands:\n" << RESET;
+                std::cout << YELLOW << "next" << GREEN << " - Go to the next page\n" << RESET;
+                std::cout << YELLOW << "previous" << GREEN << " - Go to the previous page\n" << RESET;
+                std::cout << YELLOW << "exit" << GREEN << " - Exit the visualization mode\n" << RESET;
             }
         } while (command != "exit");
     }
-    else
+    else 
     {
-        std::cout << "Couldn't find table with specified name!\n";
+        std::cout << GREEN << "Couldn't find table with specified name!\n" << RESET;
     }
 }
 
@@ -319,20 +318,20 @@ void DatabaseService::select(size_t column, const std::string& value, const std:
     Table* search_table = database.find(table);
     if (search_table != nullptr)
     {
-        std::vector<size_t> indeces;
+        std::vector<size_t> indexes;
         for (size_t i = 0; i < (*search_table)[column - 1]->getCellCount(); i++)
         {
             if ((*(*search_table)[column - 1])[i] == value)
             {
-                indeces.push_back(i);
+                indexes.push_back(i);
             }
         }
 
         std::cout << "\nYou are currently in visualization mode! Available commands: \n";
         visualizationInfo();
 
-        size_t pages = indeces.size() / 10;
-        pages += (indeces.size() % 10 != 0);
+        size_t pages = indexes.size() / 10;
+        pages += (indexes.size() % 10 != 0);
         size_t current_page = 1;
 
         std::cout << "\nCurrent page: 1\n";
@@ -342,11 +341,11 @@ void DatabaseService::select(size_t column, const std::string& value, const std:
             std::cout << std::setw(20) << std::left << (*search_table)[i]->getColumnName() << ' ';
         }
         std::cout << '\n';
-        for (size_t i = 0; i < std::min(indeces.size(), current_page * 10); i++)
+        for (size_t i = 0; i < std::min(indexes.size(), current_page * 10); i++)
         {
             for (size_t j = 0; j < search_table->getColumnCount(); j++)
             {
-                std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indeces[i]] << ' ';
+                std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indexes[i]] << ' ';
             }
             std::cout << '\n';
         }
@@ -362,7 +361,7 @@ void DatabaseService::select(size_t column, const std::string& value, const std:
 
             if (command == "next" || command == "previous")
             {
-                bool is_valid = true;
+                bool isValid = true;
                 if (command == "next" && pages > current_page)
                 {
                     current_page++;
@@ -373,11 +372,11 @@ void DatabaseService::select(size_t column, const std::string& value, const std:
                 }
                 else
                 {
-                    is_valid = false;
+                    isValid = false;
                     std::cout << "No more pages!\n";
                 }
 
-                if (is_valid)
+                if (isValid)
                 {
                     std::cout << "\nCurrent page: " << current_page << "\n";
 
@@ -386,11 +385,11 @@ void DatabaseService::select(size_t column, const std::string& value, const std:
                         std::cout << std::setw(20) << std::left << (*search_table)[i]->getColumnName() << ' ';
                     }
                     std::cout << '\n';
-                    for (size_t i = (current_page - 1) * 10; i < std::min(indeces.size(), current_page * 10); i++)
+                    for (size_t i = (current_page - 1) * 10; i < std::min(indexes.size(), current_page * 10); i++)
                     {
                         for (size_t j = 0; j < search_table->getColumnCount(); j++)
                         {
-                            std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indeces[i]] << ' ';
+                            std::cout << std::setw(20) << std::left << (*(*search_table)[j])[indexes[i]] << ' ';
                         }
                         std::cout << '\n';
                     }
@@ -503,14 +502,16 @@ void DatabaseService::innerjoin(const std::string& table1, size_t column1, const
 {
     Table* first_table = database.find(table1);
     Table* second_table = database.find(table2);
+
     if (first_table != nullptr && second_table != nullptr)
     {
         Table result = innerJoin(*first_table, column1 - 1, *second_table, column2 - 1);
+
         result.serialize();
         database.import(result.getFileName());
 
-        std::string firstName = first_table->getFileName();
-        std::string secondName = second_table->getFileName();
+        std::string firstName = first_table->getTableName();
+        std::string secondName = second_table->getTableName();
 
         result.serialize(true);
         saveTo("recovery.txt");
@@ -584,7 +585,6 @@ void DatabaseService::aggregate(const std::string& table_name, size_t search_col
             if (operation == "sum")
             {
                 double result = sum(*search_table, search_value, search_column, target_column);
-
                 std::cout << "The sum is: " << result << '\n';
             }
             else if (operation == "product")

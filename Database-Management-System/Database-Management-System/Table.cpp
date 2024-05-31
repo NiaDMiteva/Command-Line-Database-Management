@@ -95,7 +95,7 @@ void Table::serialize(bool recovery) const
     os.close();
 }
 
-void Table::deserialize(bool recovery) 
+void Table::deserialize(bool recovery)
 {
     std::ifstream is;
     if (recovery)
@@ -115,24 +115,29 @@ void Table::deserialize(bool recovery)
         };
     }
 
-    std::string name;
-    std::getline(is, name);
-    table_name = name;
-    size_t _columns_count = 0;
-    size_t _rows_count = 0;
-    is >> _columns_count >> _rows_count;
-    columns_count = _columns_count;
-    rows_count = _rows_count;
+    std::string read_table_name;
+    std::getline(is, read_table_name);
+    table_name = read_table_name;
+
+    size_t read_columns_count = 0;
+    size_t read_rows_count = 0;
+    is >> read_columns_count >> read_rows_count;
+    columns_count = read_columns_count;
+    rows_count = read_rows_count;
+
     is.ignore();
-    for (size_t i = 0; i < _columns_count; i++)
+    for (size_t i = 0; i < read_columns_count; i++)
     {
         std::string type;
         std::getline(is, type);
+        if (type.empty())
+        {
+            break;
+        }
         columns.push_back(Column::createColumn(type));
         columns[i]->deserialize(is);
     }
-    if (name == "") 
-    {
+    if (table_name == "") {
         rename("empty");
     }
     is.close();
@@ -193,50 +198,6 @@ void Table::remove(size_t row_index)
 
 Table innerJoin(const Table& first, size_t first_column, const Table& second, size_t second_column)
 {
-    Table result(first.getTableName() + '-' + second.getTableName() + ".txt", first.getTableName() + '-' + second.getTableName());
-    for (size_t i = 0; i < first.getColumnCount(); i++)
-    {
-        if (i == first_column)
-        {
-            result.addColumn(first.getTableName() + '-' + first.columns[i]->getColumnName(), first.columns[i]->getColumnType());
-        }
-        else
-        {
-            result.addColumn(first.columns[i]->getColumnName(), first.columns[i]->getColumnType());
-        }
-    }
-    for (size_t i = 0; i < second.getColumnCount(); i++)
-    {
-        if (i == second_column)
-        {
-            result.addColumn(second.getTableName() + '-' + second.columns[i]->getColumnName(), second.columns[i]->getColumnType());
-        }
-        else
-        {
-            result.addColumn(second.columns[i]->getColumnName(), second.columns[i]->getColumnType());
-        }
-    }
-
-    for (size_t i = 0; i < std::min(first.getRowCount(), second.getRowCount()); i++)
-    {
-        for (size_t j = 0; j < std::max(first.getRowCount(), second.getRowCount()); j++)
-        {
-            if ((*first.columns[first_column])[i] == (*second.columns[second_column])[j])
-            {
-                std::vector<std::string> v;
-                for (size_t k = 0; k < first.getColumnCount(); k++)
-                {
-                    v.push_back((*first.columns[k])[i]);
-                }
-                for (size_t k = 0; k < second.getColumnCount(); k++)
-                {
-                    v.push_back((*second.columns[k])[j]);
-                }
-
-                result.insertRow(v);
-            }
-        }
-    }
-
-    return result;
+    return Table();
+   //TODO: Implement innerJoin
 }

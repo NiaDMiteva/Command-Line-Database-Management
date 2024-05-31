@@ -32,25 +32,25 @@ std::ostream& Database::serialize(std::ostream& os) const
 
 std::istream& Database::deserialize(std::istream& is)
 {
-    size_t count = 0;
-    is >> count;
+    size_t count_of_tables = 0;
+    is >> count_of_tables;
 
     is.ignore();
-    for (size_t i = 0; i < count; i++)
+    for (size_t i = 0; i < count_of_tables; i++)
     {
         std::string table_name;
         std::getline(is, table_name);
 
-        std::string file_path;
-        std::getline(is, file_path);
+        std::string file_name;
+        std::getline(is, file_name);
 
-        Table table(file_path, table_name);
+        Table table(file_name, table_name);
         tables.push_back(table);
         tables[i].deserialize();
 
         if (tables[i].getFileName().find("recovery-") != std::string::npos)
         {
-            tables[i].changeFileName(file_path.erase(0, 9));
+            tables[i].changeFileName(file_name.erase(0, 9));
         }
     }
 
