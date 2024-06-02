@@ -1,0 +1,95 @@
+Customers
+4
+20
+integer
+CustomerID
+20
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+string
+Name
+20
+"John"
+"Emily"
+"Michael"
+"Sophia"
+"Daniel"
+"Olivia"
+"Matthew"
+"Ava"
+"David"
+"Emma"
+"Andrew"
+"Isabella"
+"James"
+"Mia"
+"Joseph"
+"Charlotte"
+"Joshua"
+"Amelia"
+"William"
+"Harper"
+string
+PhoneNumber
+20
+"555-123-4567"
+"555-987-6543"
+"555-555-5555"
+"555-321-6548"
+"555-876-5432"
+"555-234-5678"
+"555-789-0123"
+"555-456-7890"
+"555-890-1234"
+"555-567-8901"
+"555-432-1098"
+"555-901-2345"
+"555-678-9012"
+"555-345-6789"
+"555-012-3456"
+"555-789-0123"
+"555-456-7890"
+"555-890-1234"
+"555-567-8901"
+"555-432-1098"
+string
+Address
+20
+"123 Main St"
+"456 Elm St"
+"789 Oak Ave"
+"321 Pine Rd"
+"654 Maple Ln"
+"987 Cedar Dr"
+"234 Walnut Blvd"
+"567 Cherry Ct"
+"890 Birch Pl"
+"876 Spruce Ave"
+"543 Pineapple St"
+"210 Orange Ave"
+"901 Lemon Ln"
+"678 Grapefruit Dr"
+"345 Watermelon Blvd"
+"012 Strawberry Ct"
+"789 Blueberry Pl"
+"456 Raspberry Ave"
+"890 Blackberry St"
+"567 Kiwi Rd"

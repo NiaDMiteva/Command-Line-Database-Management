@@ -502,20 +502,18 @@ void DatabaseService::innerjoin(const std::string& table1, size_t column1, const
 {
     Table* first_table = database.find(table1);
     Table* second_table = database.find(table2);
-
     if (first_table != nullptr && second_table != nullptr)
     {
         Table result = innerJoin(*first_table, column1 - 1, *second_table, column2 - 1);
-
         result.serialize();
         database.import(result.getFileName());
 
-        std::string firstName = first_table->getTableName();
-        std::string secondName = second_table->getTableName();
+        std::string first_name = first_table->getTableName();
+        std::string second_name = second_table->getTableName();
 
         result.serialize(true);
         saveTo("recovery.txt");
-        std::cout << "Successfully joined tables " << firstName << " and " << secondName << " into " << result.getTableName() << "!\n";
+        std::cout << "Successfully joined tables " << first_name << " and " << second_name << " into " << result.getTableName() << "!\n";
     }
     else
     {

@@ -9,5 +9,8 @@ private:
 public:
 	StringColumn(const std::string& name = "", size_t cell_count = 0);
 	StringColumn* clone() const final;
-	const std::string getColumnType() const final { return "string"; }
+	const std::string getColumnType() const final 
+	{
+		return "string";
+	}
 };
